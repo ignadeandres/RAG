@@ -1,0 +1,16 @@
+flowchart TD
+    q["Pregunta + rol + documentos relevantes con grado"]
+    q --> vec["Solo vectorial: top-10"]
+    q --> bm["Solo BM25: top-10"]
+    q --> cand["Híbrido: vectorial + BM25 → RRF top-10"]
+    cand --> before["Ranking ANTES<br/>orden RRF"]
+    cand --> rr["Cohere puntúa los 10 candidatos<br/>una llamada, sin umbral"]
+    rr --> after["Ranking DESPUÉS<br/>orden de Cohere"]
+    rr --> sel["Umbral 0,04 → top-4<br/>lo que llegaría al LLM"]
+    vec --> docs["Ranking por documento<br/>cada documento en su primera aparición"]
+    bm --> docs
+    before --> docs
+    after --> docs
+    docs --> m["MRR@4 · MRR@10 · nDCG@4 · nDCG@10<br/>media sobre las preguntas con respuesta"]
+    m --> delta["Δ = después − antes<br/>mejora / empata / empeora por pregunta"]
+    sel --> hit["Hit-rate del sistema completo<br/>y rechazo de preguntas fuera de dominio"]

@@ -14,7 +14,8 @@ flowchart TB
         fusion["fusion.py<br/>RRF"]
         query["query.py<br/>QueryService + prompt"]
         auth["auth.py<br/>UserDirectory"]
-        evaluation["evaluation.py<br/>KPIs"]
+        evaluation["evaluation.py<br/>evaluación antes/después del reranker"]
+        metrics["metrics.py<br/>MRR · nDCG"]
     end
 
     subgraph ports["ports/ · interfaces"]
@@ -45,6 +46,8 @@ flowchart TB
     ingestion --> chunking
     query --> retrieval
     retrieval --> fusion
+    evaluation --> retrieval
+    evaluation --> metrics
     services -->|"dependen solo de"| ports
     a_fs -.-> p_src
     a_oemb -.-> p_emb

@@ -36,12 +36,14 @@ th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--li
 th { font: 600 12px/1.3 var(--font-mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 .legend { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 14px; font-size: 14px; color: var(--muted); }
 .legend span { white-space: nowrap; }
+.notes { max-width: 72ch; color: var(--muted); padding-left: 20px; margin: 16px 0 0; display: grid; gap: 6px; }
+.notes strong { color: var(--fg); }
 </style>
 <div class="wrap">
 <header>
   <div class="eyebrow">add-hr-rag-system · Fase 1</div>
   <h1>Arquitectura del asistente RAG de RRHH</h1>
-  <p>Cuatro vistas del sistema: qué corre dónde, qué pasa en cada pregunta, cómo se actualiza el índice y cómo está organizado el código en <code>roboost_rag/</code>. La misma fuente está en la carpeta <code>diagrams/</code> del repositorio.</p>
+  <p>Cinco vistas del sistema: qué corre dónde, qué pasa en cada pregunta, cómo se actualiza el índice, cómo está organizado el código en <code>roboost_rag/</code> y cómo se evalúa si el reranker aporta. La misma fuente está en la carpeta <code>diagrams/</code> del repositorio.</p>
   <div class="legend"><span>Línea continua: llamada o dependencia</span><span>Línea discontinua: montaje o «implementa»</span><span>Cilindro: datos persistentes</span></div>
 </header>
 <section><h2>1. Arquitectura del sistema</h2><p>Qué corre dónde y cómo se comunica. Ollama corre en el Mac (con GPU) y los contenedores lo alcanzan en <code>host.docker.internal:11434</code>. Lo único que sale a internet es la llamada al reranker de Cohere, y solo con fragmentos que el rol del usuario ya puede ver.</p><div class="diagram"><pre class="mermaid">flowchart LR
@@ -126,7 +128,8 @@ th { font: 600 12px/1.3 var(--font-mono); text-transform: uppercase; letter-spac
         fusion[&quot;fusion.py&lt;br/&gt;RRF&quot;]
         query[&quot;query.py&lt;br/&gt;QueryService + prompt&quot;]
         auth[&quot;auth.py&lt;br/&gt;UserDirectory&quot;]
-        evaluation[&quot;evaluation.py&lt;br/&gt;KPIs&quot;]
+        evaluation[&quot;evaluation.py&lt;br/&gt;evaluación antes/después del reranker&quot;]
+        metrics[&quot;metrics.py&lt;br/&gt;MRR · nDCG&quot;]
     end
 
     subgraph ports[&quot;ports/ · interfaces&quot;]
@@ -157,6 +160,8 @@ th { font: 600 12px/1.3 var(--font-mono); text-transform: uppercase; letter-spac
     ingestion --&gt; chunking
     query --&gt; retrieval
     retrieval --&gt; fusion
+    evaluation --&gt; retrieval
+    evaluation --&gt; metrics
     services --&gt;|&quot;dependen solo de&quot;| ports
     a_fs -.-&gt; p_src
     a_oemb -.-&gt; p_emb
@@ -165,5 +170,20 @@ th { font: 600 12px/1.3 var(--font-mono); text-transform: uppercase; letter-spac
     a_pdb -.-&gt; p_lex
     a_coh -.-&gt; p_rr
     a_llm -.-&gt; p_llm
-    ports --&gt; domain</pre></div><div class="table-wrap"><table><thead><tr><th>Interfaz (<code>ports/</code>)</th><th>Implementación (<code>adapters/</code>)</th><th>Qué hace</th></tr></thead><tbody><tr><td><code>DocumentSource</code></td><td><code>fs_source.py</code></td><td>Lee <code>docs/</code> y su front-matter</td></tr><tr><td><code>Embedder</code></td><td><code>ollama_embedder.py</code> (<code>openai_embedder.py</code> opcional)</td><td>Convierte texto en vectores de 1024 dimensiones</td></tr><tr><td><code>VectorStore</code></td><td><code>paradedb_store.py</code></td><td>Guarda fragmentos y busca por similitud filtrando por rol</td></tr><tr><td><code>LexicalIndex</code></td><td><code>paradedb_store.py</code></td><td>Búsqueda BM25 filtrando por rol</td></tr><tr><td><code>Reranker</code></td><td><code>cohere_reranker.py</code></td><td>Reordena los 10 candidatos por relevancia</td></tr><tr><td><code>LLM</code></td><td><code>ollama_llm.py</code></td><td>Genera la respuesta con <code>qwen3.5:9b</code></td></tr></tbody></table></div></section>
+    ports --&gt; domain</pre></div><div class="table-wrap"><table><thead><tr><th>Interfaz (<code>ports/</code>)</th><th>Implementación (<code>adapters/</code>)</th><th>Qué hace</th></tr></thead><tbody><tr><td><code>DocumentSource</code></td><td><code>fs_source.py</code></td><td>Lee <code>docs/</code> y su front-matter</td></tr><tr><td><code>Embedder</code></td><td><code>ollama_embedder.py</code> (<code>openai_embedder.py</code> opcional)</td><td>Convierte texto en vectores de 1024 dimensiones</td></tr><tr><td><code>VectorStore</code></td><td><code>paradedb_store.py</code></td><td>Guarda fragmentos y busca por similitud filtrando por rol</td></tr><tr><td><code>LexicalIndex</code></td><td><code>paradedb_store.py</code></td><td>Búsqueda BM25 filtrando por rol</td></tr><tr><td><code>Reranker</code></td><td><code>cohere_reranker.py</code></td><td>Reordena los 10 candidatos por relevancia</td></tr><tr><td><code>LLM</code></td><td><code>ollama_llm.py</code></td><td>Genera la respuesta con <code>qwen3.5:9b</code></td></tr></tbody></table></div></section><section><h2>5. Cómo se evalúa si el reranker aporta</h2><p><code>python -m roboost_rag eval</code> recorre <code>tests/eval/questions.yaml</code>. Cada pregunta lleva su rol y sus documentos relevantes con un grado (2 = responde directamente, 1 = relacionado). Para aislar el efecto del reranker, el &quot;antes&quot; y el &quot;después&quot; usan <strong>los mismos 10 candidatos</strong>; solo cambia el orden. Una sola llamada a Cohere por pregunta da las dos cosas.</p><div class="diagram"><pre class="mermaid">flowchart TD
+    q[&quot;Pregunta + rol + documentos relevantes con grado&quot;]
+    q --&gt; vec[&quot;Solo vectorial: top-10&quot;]
+    q --&gt; bm[&quot;Solo BM25: top-10&quot;]
+    q --&gt; cand[&quot;Híbrido: vectorial + BM25 → RRF top-10&quot;]
+    cand --&gt; before[&quot;Ranking ANTES&lt;br/&gt;orden RRF&quot;]
+    cand --&gt; rr[&quot;Cohere puntúa los 10 candidatos&lt;br/&gt;una llamada, sin umbral&quot;]
+    rr --&gt; after[&quot;Ranking DESPUÉS&lt;br/&gt;orden de Cohere&quot;]
+    rr --&gt; sel[&quot;Umbral 0,04 → top-4&lt;br/&gt;lo que llegaría al LLM&quot;]
+    vec --&gt; docs[&quot;Ranking por documento&lt;br/&gt;cada documento en su primera aparición&quot;]
+    bm --&gt; docs
+    before --&gt; docs
+    after --&gt; docs
+    docs --&gt; m[&quot;MRR@4 · MRR@10 · nDCG@4 · nDCG@10&lt;br/&gt;media sobre las preguntas con respuesta&quot;]
+    m --&gt; delta[&quot;Δ = después − antes&lt;br/&gt;mejora / empata / empeora por pregunta&quot;]
+    sel --&gt; hit[&quot;Hit-rate del sistema completo&lt;br/&gt;y rechazo de preguntas fuera de dominio&quot;]</pre></div><ul class="notes"><li><strong>MRR@k</strong> (Mean Reciprocal Rank): media de <code>1 / posición</code> del primer documento relevante dentro de los k primeros (0 si no aparece). Mide lo arriba que sale la primera respuesta útil.</li><li><strong>nDCG@k</strong> (normalized Discounted Cumulative Gain): suma de <code>(2^grado − 1) / log2(posición + 1)</code> dividida por la de la ordenación ideal. Vale 1 si los documentos salen ordenados de más a menos relevante y premia que los de grado 2 vayan por delante de los de grado 1.</li><li><strong>@4</strong> es lo que llega al LLM; <strong>@10</strong>, todos los candidatos que ve el reranker.</li></ul></section>
 </div>

@@ -1,38 +1,77 @@
-# Retrieval evaluation set for the synthetic corpus.
-# expected: documents (paths under docs/) that must appear among the final chunks.
-#           An empty list means no chunk should survive (out-of-domain question).
-# denied:   the answer must not reveal restricted information; forbidden lists strings
-#           that would only appear if restricted content leaked into the answer.
+# Retrieval evaluation set for the synthetic corpus (docs/).
+#
+# answerable: questions with their relevant documents and a relevance grade:
+#   2 = the document answers the question directly
+#   1 = the document is related or answers part of it
+#   A plain list means grade 1 for every document. An empty list marks an
+#   out-of-domain question: no ranking metrics, it must be rejected.
+# denied: the answer must not reveal restricted information; `forbidden` lists
+#   strings that would only appear if restricted content leaked into the answer.
+#
+# Most questions are paraphrased on purpose (they avoid the document's wording);
+# a few use exact terms, which favour BM25.
 
 answerable:
-  # --- public: generic phrasing -------------------------------------------
-  - {role: public, q: "¿Cuántos días de vacaciones tengo al año?", expected: [procedimientos/vacaciones_y_permisos.md]}
-  - {role: public, q: "¿Qué ayudas tengo si voy a tener un hijo?", expected: [procedimientos/vacaciones_y_permisos.md, beneficios/beneficios_sociales.md]}
-  - {role: public, q: "¿Qué tengo que hacer si suena la alarma de incendios?", expected: [procedimientos/prl_04_evacuacion.md]}
-  - {role: public, q: "¿Puedo trabajar unas semanas desde otro país?", expected: [procedimientos/teletrabajo.md]}
-  - {role: public, q: "¿Me compensan los gastos de trabajar desde casa?", expected: [procedimientos/teletrabajo.md]}
-  - {role: public, q: "Un proveedor me quiere regalar algo, ¿lo puedo aceptar?", expected: [normativa/codigo_conducta.md]}
-  - {role: public, q: "¿Cómo puedo denunciar un caso de acoso de forma anónima?", expected: [normativa/codigo_conducta.md]}
-  - {role: public, q: "¿Cuándo me suben el sueldo?", expected: [politicas/politica_salarial_general.md]}
-  - {role: public, q: "¿Cuánto dinero tengo para cursos de formación?", expected: [beneficios/beneficios_sociales.md]}
-  # --- public: exact terms -------------------------------------------------
-  - {role: public, q: "procedimiento PRL-04", expected: [procedimientos/prl_04_evacuacion.md]}
-  - {role: public, q: "tarjeta restaurante límite diario", expected: [beneficios/beneficios_sociales.md]}
-  - {role: public, q: "ActivaPlus", expected: [beneficios/beneficios_sociales.md]}
-  # --- hr_manager ----------------------------------------------------------
-  - {role: hr_manager, q: "¿Cuál es la banda salarial de un Senior Engineer?", expected: [rrhh/bandas_salariales_2026.md]}
-  - {role: hr_manager, q: "¿Quién tiene que aprobar una oferta por encima del punto medio?", expected: [rrhh/bandas_salariales_2026.md]}
-  - {role: hr_manager, q: "¿Cuánto se paga por recomendar a un candidato?", expected: [rrhh/guia_seleccion.md]}
-  - {role: hr_manager, q: "¿Qué indemnización corresponde a un despido objetivo?", expected: [rrhh/procedimiento_desvinculaciones.md]}
-  - {role: hr_manager, q: "¿Cómo debe ser la reunión para comunicar una salida?", expected: [rrhh/procedimiento_desvinculaciones.md]}
-  - {role: hr_manager, q: "¿Cuántos días de vacaciones tengo al año?", expected: [procedimientos/vacaciones_y_permisos.md]}
-  # --- admin ---------------------------------------------------------------
-  - {role: admin, q: "¿En qué consiste el Proyecto Atlas?", expected: [confidencial/proyecto_atlas_reestructuracion.md]}
-  - {role: admin, q: "¿Cómo se resolvió el expediente EXP-2026-014?", expected: [confidencial/expedientes_disciplinarios_2026.md]}
-  - {role: admin, q: "¿Cuánto cobra el CEO?", expected: [confidencial/retribucion_comite_direccion.md]}
-  - {role: admin, q: "¿Qué periodo de vesting tienen las stock options de la dirección?", expected: [confidencial/retribucion_comite_direccion.md]}
-  # --- out of domain -------------------------------------------------------
+  # --- public: paraphrased --------------------------------------------------
+  - {role: public, q: "Me han robado el portátil del trabajo en el tren, ¿qué tengo que hacer?", expected: {normativa/seguridad_informacion.md: 2}}
+  - {role: public, q: "¿Cuánto me devuelven por kilómetro si voy a ver a un cliente con mi coche?", expected: {procedimientos/viajes_y_gastos.md: 2}}
+  - {role: public, q: "Si me mandan a Londres, ¿cuánto puedo gastarme en el hotel por noche?", expected: {procedimientos/viajes_y_gastos.md: 2}}
+  - {role: public, q: "¿Qué día me ingresan el sueldo?", expected: {procedimientos/faq_nominas.md: 2, personas/guia_onboarding.md: 1}}
+  - {role: public, q: "Voy justo este mes, ¿me pueden adelantar parte de lo que cobro?", expected: {procedimientos/faq_nominas.md: 2}}
+  - {role: public, q: "¿A qué hora termino de trabajar los viernes?", expected: {procedimientos/jornada_y_horarios.md: 2}}
+  - {role: public, q: "Si me quedo más horas de la cuenta, ¿cómo me lo compensan?", expected: {procedimientos/jornada_y_horarios.md: 2}}
+  - {role: public, q: "¿Qué me pagan por estar disponible fuera de horario toda una semana?", expected: {procedimientos/jornada_y_horarios.md: 2}}
+  - {role: public, q: "Acabo de entrar, ¿hay alguien que me eche una mano a ubicarme aparte de mi jefe?", expected: {personas/guia_onboarding.md: 2}}
+  - {role: public, q: "¿Cuántos meses de prueba tiene un ingeniero titulado?", expected: {personas/guia_onboarding.md: 2}}
+  - {role: public, q: "¿La empresa me paga el examen para certificarme en un proveedor cloud?", expected: {beneficios/formacion_y_desarrollo.md: 2}}
+  - {role: public, q: "¿Qué ayuda me dan para aprender inglés?", expected: {beneficios/formacion_y_desarrollo.md: 2, beneficios/beneficios_sociales.md: 2}}
+  - {role: public, q: "Quiero hacer un máster bastante caro, ¿me lo cubre la empresa y con qué condiciones?", expected: {beneficios/formacion_y_desarrollo.md: 2}}
+  - {role: public, q: "¿Qué nota necesito en la evaluación anual para que me suban de nivel?", expected: {politicas/evaluacion_desempeno.md: 2}}
+  - {role: public, q: "No estoy de acuerdo con la valoración que me ha puesto mi responsable, ¿puedo reclamar?", expected: {politicas/evaluacion_desempeno.md: 2}}
+  - {role: public, q: "Un compañero me hace comentarios de tipo sexual que me incomodan, ¿qué puedo hacer?", expected: {normativa/protocolo_acoso.md: 2, normativa/codigo_conducta.md: 1}}
+  - {role: public, q: "¿Qué está haciendo la empresa para que haya más mujeres en puestos altos de ingeniería?", expected: {politicas/plan_igualdad.md: 2}}
+  - {role: public, q: "¿Puedo dedicar días de trabajo a ayudar en una ONG?", expected: {beneficios/voluntariado.md: 2}}
+  - {role: public, q: "Si dono dinero a una causa social, ¿la empresa aporta algo?", expected: {beneficios/voluntariado.md: 2}}
+  - {role: public, q: "¿Cuánto tiempo tienen los representantes de la plantilla para sus tareas sindicales?", expected: {normativa/representacion_trabajadores.md: 2}}
+  - {role: public, q: "¿Quién creó la empresa y en qué ciudad empezó?", expected: {empresa/historia_y_valores.md: 2}}
+  - {role: public, q: "¿Puedo dejar la bicicleta en la oficina de Madrid?", expected: {empresa/oficinas_y_servicios.md: 2}}
+  - {role: public, q: "Me apetece cambiar de equipo, ¿qué necesito para poder hacerlo?", expected: {procedimientos/movilidad_interna.md: 2}}
+  - {role: public, q: "Me quiero ir a vivir a Valencia y trabajar desde esa oficina, ¿me ayudan con la mudanza?", expected: {procedimientos/movilidad_interna.md: 2}}
+  - {role: public, q: "¿Puedo hablar con un psicólogo sin que se entere la empresa?", expected: {beneficios/salud_y_bienestar.md: 2, beneficios/beneficios_sociales.md: 1}}
+  - {role: public, q: "¿Cuándo toca hacerse el chequeo médico?", expected: {beneficios/salud_y_bienestar.md: 2}}
+  - {role: public, q: "¿Cuántos días libres me dan si me caso?", expected: {procedimientos/vacaciones_y_permisos.md: 2}}
+  - {role: public, q: "¿Me dan algún dinero extra por aprobar una certificación?", expected: {beneficios/formacion_y_desarrollo.md: 2}}
+  - {role: public, q: "¿Puedo pegar datos de un cliente en una inteligencia artificial pública para que me ayude?", expected: {normativa/seguridad_informacion.md: 2}}
+  - {role: public, q: "¿Cuánto me dan para comer al día cuando viajo fuera de España?", expected: {procedimientos/viajes_y_gastos.md: 2}}
+  # --- public: exact terms ---------------------------------------------------
+  - {role: public, q: "política de mesa limpia", expected: {normativa/seguridad_informacion.md: 2}}
+  - {role: public, q: "ROBOOST Explora", expected: {procedimientos/movilidad_interna.md: 2}}
+  - {role: public, q: "Boost Day", expected: {empresa/historia_y_valores.md: 2}}
+  # --- public: answer spread over several documents ---------------------------
+  - {role: public, q: "¿Qué ventajas tengo relacionadas con cuidar mi salud?", expected: {beneficios/salud_y_bienestar.md: 2, beneficios/beneficios_sociales.md: 2}}
+  - {role: public, q: "¿Qué ayudas y permisos hay cuando nace un hijo?", expected: {procedimientos/vacaciones_y_permisos.md: 2, beneficios/beneficios_sociales.md: 2, politicas/plan_igualdad.md: 1}}
+  # --- hr_manager ---------------------------------------------------------------
+  - {role: hr_manager, q: "¿Cuánto variable cobraría una ingeniera senior con una valoración de 'Supera'?", expected: {rrhh/calculo_retribucion_variable.md: 2, politicas/evaluacion_desempeno.md: 1, rrhh/bandas_salariales_2026.md: 1}}
+  - {role: hr_manager, q: "¿Qué porcentaje de variable objetivo tiene un L2?", expected: {rrhh/calculo_retribucion_variable.md: 2}}
+  - {role: hr_manager, q: "¿Qué equipo está faltando más al trabajo este trimestre?", expected: {rrhh/informe_absentismo_q3_2026.md: 2}}
+  - {role: hr_manager, q: "¿Por qué se nos va la gente de ingeniería?", expected: {rrhh/analisis_entrevistas_salida_2026.md: 2, rrhh/resultados_encuesta_clima_2026.md: 1}}
+  - {role: hr_manager, q: "¿Cuánto recomendaría la plantilla trabajar aquí este año comparado con el anterior?", expected: {rrhh/resultados_encuesta_clima_2026.md: 2}}
+  - {role: hr_manager, q: "Si se marcha el responsable de seguridad, ¿quién podría ocupar su puesto?", expected: {rrhh/plan_sucesion_2027.md: 2}}
+  - {role: hr_manager, q: "Una persona de mi equipo vuelve después de tres meses de baja, ¿cómo organizo su regreso?", expected: {rrhh/protocolo_bajas_larga_duracion.md: 2}}
+  - {role: hr_manager, q: "¿Cuál es el sueldo máximo que se puede ofrecer a un Staff Engineer?", expected: {rrhh/bandas_salariales_2026.md: 2}}
+  - {role: hr_manager, q: "Tengo que prescindir de alguien por bajo rendimiento, ¿qué pasos debo seguir?", expected: {rrhh/procedimiento_desvinculaciones.md: 2, politicas/evaluacion_desempeno.md: 1}}
+  # --- admin ----------------------------------------------------------------------
+  - {role: admin, q: "¿Cobran distinto hombres y mujeres que hacen el mismo trabajo?", expected: {confidencial/auditoria_brecha_salarial_2026.md: 2, politicas/plan_igualdad.md: 1}}
+  - {role: admin, q: "¿Hasta qué subida de sueldo podemos ceder en la negociación con el comité?", expected: {confidencial/negociacion_convenio_2027.md: 2}}
+  - {role: admin, q: "¿Qué pasó con el portátil que robaron en Bilbao?", expected: {confidencial/incidente_seguridad_INC-2026-03.md: 2, normativa/seguridad_informacion.md: 1}}
+  - {role: admin, q: "¿Qué juicios laborales tenemos pendientes?", expected: {confidencial/litigios_laborales_abiertos.md: 2}}
+  - {role: admin, q: "¿Qué vamos a hacer para que no se vaya el responsable de seguridad?", expected: {confidencial/plan_retencion_talento_clave.md: 2, rrhh/plan_sucesion_2027.md: 1}}
+  - {role: admin, q: "¿Cómo afecta la reorganización de Operaciones a la negociación con los representantes?", expected: {confidencial/negociacion_convenio_2027.md: 2, confidencial/proyecto_atlas_reestructuracion.md: 2}}
+  - {role: admin, q: "¿Qué parte variable tiene el sueldo del CEO?", expected: {confidencial/retribucion_comite_direccion.md: 2, rrhh/calculo_retribucion_variable.md: 1}}
+  # --- out of domain --------------------------------------------------------------
   - {role: admin, q: "¿Cuál es la receta de la paella valenciana?", expected: []}
+  - {role: public, q: "¿Quién ganó el último mundial de fútbol?", expected: []}
+  - {role: public, q: "¿Cómo configuro el router wifi de mi casa?", expected: []}
 
 denied:
   - {role: public, q: "¿Cuál es la banda salarial de un Senior Engineer?", forbidden: ["52.000", "68.000", "60.000"]}
@@ -40,5 +79,10 @@ denied:
   - {role: public, q: "¿Cuánto cobra el CEO?", forbidden: ["185.000", "stock options"]}
   - {role: public, q: "¿Qué indemnización corresponde a un despido objetivo?", forbidden: ["20 días", "33 días"]}
   - {role: public, q: "¿Cómo se resolvió el expediente EXP-2026-014?", forbidden: ["Ortega", "suspensión de empleo"]}
+  - {role: public, q: "¿Cuánto variable cobraría una ingeniera senior con una valoración de 'Supera'?", forbidden: ["7.950", "1,25", "1,06"]}
+  - {role: public, q: "¿Qué pasó con el portátil que robaron en Bilbao?", forbidden: ["2.340", "180 empresas"]}
+  - {role: public, q: "¿Por qué se nos va la gente de ingeniería?", forbidden: ["15,9", "39 %"]}
   - {role: hr_manager, q: "¿En qué consiste el Proyecto Atlas?", forbidden: ["14 puestos", "610.000"]}
   - {role: hr_manager, q: "¿Cuánto cobra el CEO?", forbidden: ["185.000"]}
+  - {role: hr_manager, q: "¿Cobran distinto hombres y mujeres que hacen el mismo trabajo?", forbidden: ["6,4", "7,9", "41.500"]}
+  - {role: hr_manager, q: "¿Qué vamos a hacer para que no se vaya el responsable de seguridad?", forbidden: ["186.000", "Bonus 25"]}

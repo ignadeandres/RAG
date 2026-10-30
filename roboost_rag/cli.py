@@ -41,30 +41,16 @@ def cmd_sync(args) -> int:
 
 
 def cmd_eval(args) -> int:
-    from roboost_rag.services.evaluation import (
-        FULL_PIPELINE,
-        evaluate_denials,
-        evaluate_retrieval,
-        load_questions,
-    )
+    from roboost_rag.services.evaluation import evaluate, evaluate_denials, load_questions
 
     container = _container()
     questions = load_questions(args.questions)
-    result = evaluate_retrieval(container.retrieval, questions, pace_seconds=args.pace)
-    for label, rate in result.hit_rate.items():
-        print(f"hit-rate {label:>20}: {rate:.2%}")
-        if args.verbose:
-            for miss in result.misses[label]:
-                print(f"    fallo: {miss}")
-    if args.verbose and result.rerank_scores:
-        print("\nMejor puntuación del reranker por pregunta (para calibrar RERANK_THRESHOLD):")
-        for q, in_domain, best in sorted(result.rerank_scores, key=lambda r: r[2]):
-            print(f"    {best:.3f} {'' if in_domain else '(fuera de dominio) '}{q}")
-    final = FULL_PIPELINE if FULL_PIPELINE in result.hit_rate else "hybrid (sin rerank)"
-    ok = result.hit_rate[final] >= args.target
+    result = evaluate(container.retrieval, questions, pace_seconds=args.pace)
+    print(format_report(result, verbose=args.verbose))
+    ok = result.hit_rate.get("sistema completo", 0.0) >= args.target
 
     if args.answers:
-        evaluate_denials(container.query, questions, result)
+        evaluate_denials(container.query, questions, result, pace_seconds=args.pace)
         for role, q, text in result.denied_answers:
             print(f"\n[{role}] {q}\n  → {text}")
         print(f"\nFugas de información: {len(result.leaks)}")
@@ -74,6 +60,52 @@ def cmd_eval(args) -> int:
 
     print("\nKPI CUMPLIDO" if ok else "\nKPI NO CUMPLIDO")
     return 0 if ok else 1
+
+
+def format_report(result, *, verbose: bool = False) -> str:
+    from roboost_rag.services.evaluation import AFTER, BEFORE, BM25, METRICS, VECTOR
+
+    cols = [c for c in (VECTOR, BM25, BEFORE, AFTER) if c in result.metrics]
+    heads = {VECTOR: "vectorial", BM25: "BM25", BEFORE: "híbrido antes", AFTER: "híbrido después"}
+    lines = [f"Métricas de ranking por documento ({result.evaluated} preguntas con respuesta)", ""]
+    header = f"{'':<8}" + "".join(f"{heads[c]:>17}" for c in cols)
+    if result.has_reranker:
+        header += f"{'Δ rerank':>11}"
+    lines.append(header)
+    for m in METRICS:
+        row = f"{m:<8}" + "".join(f"{result.metrics[c][m]:>17.3f}" for c in cols)
+        if result.has_reranker:
+            row += f"{result.metrics[AFTER][m] - result.metrics[BEFORE][m]:>+11.3f}"
+        lines.append(row)
+
+    if result.has_reranker:
+        lines += [
+            "",
+            f"Reranker por pregunta (nDCG@10): mejora {len(result.wins)} · "
+            f"empata {len(result.ties)} · empeora {len(result.losses)}",
+        ]
+    if result.excluded:
+        lines.append(f"Excluidas por fallo del reranker: {len(result.excluded)}")
+    rejected, total = result.out_of_domain
+    lines += ["", "Hit-rate (documento correcto entre los fragmentos que llegan al LLM):"]
+    lines += [f"    {name:<18} {rate:.2%}" for name, rate in result.hit_rate.items()]
+    if total:
+        lines.append(f"Preguntas fuera de dominio rechazadas: {rejected}/{total}")
+
+    if verbose:
+        for title, items in (
+            ("Empeoran con el reranker", result.losses),
+            ("Mejoran con el reranker", result.wins),
+            ("Fallos de hit-rate del sistema completo", result.misses),
+            ("Excluidas", result.excluded),
+        ):
+            if items:
+                lines += ["", f"{title}:"] + [f"    {i}" for i in items]
+        if result.best_scores:
+            lines += ["", "Mejor puntuación del reranker por pregunta (para calibrar RERANK_THRESHOLD):"]
+            for label, in_domain, best in sorted(result.best_scores, key=lambda r: r[2]):
+                lines.append(f"    {best:.3f} {'' if in_domain else '(fuera de dominio) '}{label}")
+    return "\n".join(lines)
 
 
 def cmd_check(_args) -> int:
@@ -103,7 +135,7 @@ def main(argv: list[str] | None = None) -> int:
     sync.add_argument("--loop", action="store_true")
     sync.set_defaults(func=cmd_sync)
 
-    ev = sub.add_parser("eval", help="Evalúa la recuperación (vector, bm25, híbrido)")
+    ev = sub.add_parser("eval", help="MRR, nDCG y hit-rate antes y después del reranker")
     ev.add_argument("--questions", default=DEFAULT_QUESTIONS)
     ev.add_argument("--target", type=float, default=0.90)
     ev.add_argument("--answers", action="store_true", help="Genera respuestas y busca fugas")

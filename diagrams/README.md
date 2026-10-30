@@ -1,6 +1,6 @@
 # Arquitectura del asistente RAG de RRHH
 
-Cada diagrama está también como fichero `.mmd` independiente en esta carpeta (`01-arquitectura-sistema.mmd`, `02-flujo-pregunta.mmd`, `03-reindexacion.mmd`, `04-estructura-codigo.mmd`), útil para editarlo en [mermaid.live](https://mermaid.live) o exportarlo a imagen.
+Cada diagrama está también como fichero `.mmd` independiente en esta carpeta (`01-arquitectura-sistema.mmd`, `02-flujo-pregunta.mmd`, `03-reindexacion.mmd`, `04-estructura-codigo.mmd`, `05-evaluacion.mmd`), útil para editarlo en [mermaid.live](https://mermaid.live) o exportarlo a imagen.
 
 ## 1. Arquitectura del sistema
 
@@ -109,7 +109,8 @@ flowchart TB
         fusion["fusion.py<br/>RRF"]
         query["query.py<br/>QueryService + prompt"]
         auth["auth.py<br/>UserDirectory"]
-        evaluation["evaluation.py<br/>KPIs"]
+        evaluation["evaluation.py<br/>evaluación antes/después del reranker"]
+        metrics["metrics.py<br/>MRR · nDCG"]
     end
 
     subgraph ports["ports/ · interfaces"]
@@ -140,6 +141,8 @@ flowchart TB
     ingestion --> chunking
     query --> retrieval
     retrieval --> fusion
+    evaluation --> retrieval
+    evaluation --> metrics
     services -->|"dependen solo de"| ports
     a_fs -.-> p_src
     a_oemb -.-> p_emb
@@ -159,3 +162,30 @@ flowchart TB
 | `LexicalIndex` | `paradedb_store.py` | Búsqueda BM25 filtrando por rol |
 | `Reranker` | `cohere_reranker.py` | Reordena los 10 candidatos por relevancia |
 | `LLM` | `ollama_llm.py` | Genera la respuesta con `qwen3.5:9b` |
+
+## 5. Cómo se evalúa si el reranker aporta
+
+`python -m roboost_rag eval` recorre `tests/eval/questions.yaml`. Cada pregunta lleva su rol y sus documentos relevantes con un grado (2 = responde directamente, 1 = relacionado). Para aislar el efecto del reranker, el "antes" y el "después" usan **los mismos 10 candidatos**; solo cambia el orden. Una sola llamada a Cohere por pregunta da las dos cosas.
+
+```mermaid
+flowchart TD
+    q["Pregunta + rol + documentos relevantes con grado"]
+    q --> vec["Solo vectorial: top-10"]
+    q --> bm["Solo BM25: top-10"]
+    q --> cand["Híbrido: vectorial + BM25 → RRF top-10"]
+    cand --> before["Ranking ANTES<br/>orden RRF"]
+    cand --> rr["Cohere puntúa los 10 candidatos<br/>una llamada, sin umbral"]
+    rr --> after["Ranking DESPUÉS<br/>orden de Cohere"]
+    rr --> sel["Umbral 0,04 → top-4<br/>lo que llegaría al LLM"]
+    vec --> docs["Ranking por documento<br/>cada documento en su primera aparición"]
+    bm --> docs
+    before --> docs
+    after --> docs
+    docs --> m["MRR@4 · MRR@10 · nDCG@4 · nDCG@10<br/>media sobre las preguntas con respuesta"]
+    m --> delta["Δ = después − antes<br/>mejora / empata / empeora por pregunta"]
+    sel --> hit["Hit-rate del sistema completo<br/>y rechazo de preguntas fuera de dominio"]
+```
+
+- **MRR@k** (Mean Reciprocal Rank): media de `1 / posición` del primer documento relevante dentro de los k primeros (0 si no aparece). Mide lo arriba que sale la primera respuesta útil.
+- **nDCG@k** (normalized Discounted Cumulative Gain): suma de `(2^grado − 1) / log2(posición + 1)` dividida por la de la ordenación ideal. Vale 1 si los documentos salen ordenados de más a menos relevante y premia que los de grado 2 vayan por delante de los de grado 1.
+- **@4** es lo que llega al LLM; **@10**, todos los candidatos que ve el reranker.

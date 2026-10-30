@@ -50,12 +50,13 @@ class RetrievalService:
         """`mode` is hybrid (default), vector or bm25; the single-retriever modes exist for evaluation."""
         if not isinstance(role, Role):
             raise MissingRoleError("Una consulta debe ir asociada a un rol autenticado.")
-        candidates = self._candidates(question, role, mode)
+        candidates = self.candidates(question, role, mode)
         if not candidates:
             return []
         return self._rerank(question, candidates)
 
-    def _candidates(self, question: str, role: Role, mode: str) -> list[RetrievedChunk]:
+    def candidates(self, question: str, role: Role, mode: str = "hybrid") -> list[RetrievedChunk]:
+        """Fused top candidates (RRF order), before reranking."""
         n = self.config.candidates_per_retriever
         vector = lexical = None
         if mode in ("hybrid", "vector"):
@@ -82,4 +83,9 @@ class RetrievalService:
         except RerankerError as exc:
             log.warning("Reranker no disponible, se usa el orden de la fusión: %s", exc)
             return candidates[:k]
-        return [c for c in ranked if c.score >= self.config.rerank_threshold][:k]
+        return self.select(ranked)
+
+    def select(self, reranked: list[RetrievedChunk]) -> list[RetrievedChunk]:
+        """Final selection from reranked chunks: drop those under the threshold, keep top-K."""
+        threshold = self.config.rerank_threshold
+        return [c for c in reranked if c.score >= threshold][: self.config.final_top_k]

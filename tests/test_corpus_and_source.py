@@ -6,6 +6,7 @@ import pytest
 
 from roboost_rag.adapters.fs_source import FileSystemSource
 from roboost_rag.domain import AccessLevel
+from roboost_rag.services.chunking import Chunker
 
 DOCS = Path(__file__).resolve().parents[1] / "docs"
 
@@ -19,8 +20,15 @@ def write(root: Path, rel: str, text: str) -> None:
 def test_corpus_covers_every_level():
     result = FileSystemSource(DOCS).load()
     assert result.failed == []
+    assert len(result.documents) >= 30
     counts = Counter(d.access_level for d in result.documents)
-    assert all(counts[level] >= 3 for level in AccessLevel)
+    assert all(counts[level] >= 6 for level in AccessLevel)
+
+
+def test_corpus_has_multi_chunk_documents():
+    chunker = Chunker(3200)  # default CHUNK_SIZE
+    docs = FileSystemSource(DOCS).load().documents
+    assert sum(len(chunker.split(d)) > 1 for d in docs) >= 4
 
 
 def test_corpus_has_cross_sensitivity_on_salary_policy():

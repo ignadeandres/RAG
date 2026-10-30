@@ -155,3 +155,10 @@ def test_lexical_term_found_through_hybrid():
     svc, _ = make_service(None, final_top_k=1)
     [top] = svc.retrieve("prl04", Role.PUBLIC)
     assert top.document_path == "prl.md"
+
+
+def test_select_applies_threshold_then_top_k():
+    svc, _ = make_service(None, final_top_k=2, rerank_threshold=0.5)
+    reranked = [rc(1).model_copy(update={"score": s}) for s in (0.9, 0.8, 0.7, 0.1)]
+    assert [c.score for c in svc.select(reranked)] == [0.9, 0.8]
+    assert svc.select([rc(1).model_copy(update={"score": 0.2})]) == []
