@@ -1,0 +1,11 @@
+.git
+.venv
+.env
+.claude
+openspec
+docs
+**/__pycache__
+**/*.egg-info
+.pytest_cache
+tests/*.py
+tests/integration

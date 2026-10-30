@@ -1,0 +1,11 @@
+flowchart TD
+    tick["Al arrancar y cada 5 minutos"] --> lock{"¿Hay otra pasada en curso?<br/>pg_try_advisory_lock"}
+    lock -- sí --> skip["Se omite esta pasada"]
+    lock -- no --> read["Leer docs/<br/>front-matter → title y access_level<br/>sin access_level válido → admin"]
+    read --> dedup["Quitar duplicados por contenido<br/>se conserva la copia más restrictiva"]
+    dedup --> diff{"¿Cambió el hash<br/>respecto al índice?"}
+    diff -- igual --> omit["Omitir: no se recalculan embeddings"]
+    diff -- nuevo o cambiado --> chunk["Fragmentar: máx. 3200 caracteres<br/>10 % de solapamiento, título delante"]
+    chunk --> emb["bge-m3: un vector por fragmento"]
+    emb --> tx["Una transacción: borra los fragmentos viejos<br/>e inserta los nuevos"]
+    diff -- el fichero ya no existe --> del["Borrar del índice"]

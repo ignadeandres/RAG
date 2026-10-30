@@ -1,0 +1,25 @@
+flowchart LR
+    user(["Usuario<br/>navegador"])
+    cohere["Cohere Rerank<br/>rerank-v3.5 (internet)"]
+
+    subgraph host["Tu Mac"]
+        docs[("docs/<br/>Markdown con front-matter")]
+        subgraph ollama["Ollama nativo (GPU)"]
+            qwen["qwen3.5:9b<br/>genera respuestas"]
+            bge["bge-m3<br/>embeddings 1024d"]
+        end
+        subgraph compose["Docker Compose"]
+            app["app<br/>Streamlit :8501"]
+            indexer["indexer<br/>sincroniza cada 5 min"]
+            db[("postgres · ParadeDB<br/>pgvector HNSW + pg_search BM25")]
+        end
+    end
+
+    user -->|"login y pregunta"| app
+    docs -.->|"montado en solo lectura"| indexer
+    indexer -->|"vectoriza fragmentos"| bge
+    indexer -->|"guarda documentos y fragmentos"| db
+    app -->|"vectoriza la pregunta"| bge
+    app -->|"búsqueda vectorial + BM25<br/>filtradas por rol en SQL"| db
+    app -->|"10 candidatos autorizados"| cohere
+    app -->|"contexto + pregunta"| qwen

@@ -1,0 +1,56 @@
+flowchart TB
+    subgraph entry["Puntos de entrada"]
+        ui["ui/app.py<br/>interfaz Streamlit"]
+        cli["cli.py<br/>ingest · sync · eval · check · hash-password"]
+    end
+
+    container["container.py<br/>construye y conecta todas las piezas"]
+
+    subgraph services["services/ · lógica de negocio"]
+        ingestion["ingestion.py<br/>IngestionService"]
+        scheduler["scheduler.py<br/>SyncScheduler"]
+        chunking["chunking.py<br/>Chunker"]
+        retrieval["retrieval.py<br/>RetrievalService"]
+        fusion["fusion.py<br/>RRF"]
+        query["query.py<br/>QueryService + prompt"]
+        auth["auth.py<br/>UserDirectory"]
+        evaluation["evaluation.py<br/>KPIs"]
+    end
+
+    subgraph ports["ports/ · interfaces"]
+        p_src["DocumentSource"]
+        p_emb["Embedder"]
+        p_vec["VectorStore"]
+        p_lex["LexicalIndex"]
+        p_rr["Reranker"]
+        p_llm["LLM"]
+    end
+
+    subgraph adapters["adapters/ · implementaciones"]
+        a_fs["fs_source.py"]
+        a_oemb["ollama_embedder.py"]
+        a_oai["openai_embedder.py<br/>(opcional)"]
+        a_pdb["paradedb_store.py"]
+        a_coh["cohere_reranker.py"]
+        a_llm["ollama_llm.py"]
+    end
+
+    domain["domain/models.py<br/>Role · AccessLevel · Document · Chunk · Answer"]
+
+    ui --> container
+    cli --> container
+    container --> services
+    container --> adapters
+    scheduler --> ingestion
+    ingestion --> chunking
+    query --> retrieval
+    retrieval --> fusion
+    services -->|"dependen solo de"| ports
+    a_fs -.-> p_src
+    a_oemb -.-> p_emb
+    a_oai -.-> p_emb
+    a_pdb -.-> p_vec
+    a_pdb -.-> p_lex
+    a_coh -.-> p_rr
+    a_llm -.-> p_llm
+    ports --> domain

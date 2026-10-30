@@ -1,0 +1,44 @@
+# Retrieval evaluation set for the synthetic corpus.
+# expected: documents (paths under docs/) that must appear among the final chunks.
+#           An empty list means no chunk should survive (out-of-domain question).
+# denied:   the answer must not reveal restricted information; forbidden lists strings
+#           that would only appear if restricted content leaked into the answer.
+
+answerable:
+  # --- public: generic phrasing -------------------------------------------
+  - {role: public, q: "¿Cuántos días de vacaciones tengo al año?", expected: [procedimientos/vacaciones_y_permisos.md]}
+  - {role: public, q: "¿Qué ayudas tengo si voy a tener un hijo?", expected: [procedimientos/vacaciones_y_permisos.md, beneficios/beneficios_sociales.md]}
+  - {role: public, q: "¿Qué tengo que hacer si suena la alarma de incendios?", expected: [procedimientos/prl_04_evacuacion.md]}
+  - {role: public, q: "¿Puedo trabajar unas semanas desde otro país?", expected: [procedimientos/teletrabajo.md]}
+  - {role: public, q: "¿Me compensan los gastos de trabajar desde casa?", expected: [procedimientos/teletrabajo.md]}
+  - {role: public, q: "Un proveedor me quiere regalar algo, ¿lo puedo aceptar?", expected: [normativa/codigo_conducta.md]}
+  - {role: public, q: "¿Cómo puedo denunciar un caso de acoso de forma anónima?", expected: [normativa/codigo_conducta.md]}
+  - {role: public, q: "¿Cuándo me suben el sueldo?", expected: [politicas/politica_salarial_general.md]}
+  - {role: public, q: "¿Cuánto dinero tengo para cursos de formación?", expected: [beneficios/beneficios_sociales.md]}
+  # --- public: exact terms -------------------------------------------------
+  - {role: public, q: "procedimiento PRL-04", expected: [procedimientos/prl_04_evacuacion.md]}
+  - {role: public, q: "tarjeta restaurante límite diario", expected: [beneficios/beneficios_sociales.md]}
+  - {role: public, q: "ActivaPlus", expected: [beneficios/beneficios_sociales.md]}
+  # --- hr_manager ----------------------------------------------------------
+  - {role: hr_manager, q: "¿Cuál es la banda salarial de un Senior Engineer?", expected: [rrhh/bandas_salariales_2026.md]}
+  - {role: hr_manager, q: "¿Quién tiene que aprobar una oferta por encima del punto medio?", expected: [rrhh/bandas_salariales_2026.md]}
+  - {role: hr_manager, q: "¿Cuánto se paga por recomendar a un candidato?", expected: [rrhh/guia_seleccion.md]}
+  - {role: hr_manager, q: "¿Qué indemnización corresponde a un despido objetivo?", expected: [rrhh/procedimiento_desvinculaciones.md]}
+  - {role: hr_manager, q: "¿Cómo debe ser la reunión para comunicar una salida?", expected: [rrhh/procedimiento_desvinculaciones.md]}
+  - {role: hr_manager, q: "¿Cuántos días de vacaciones tengo al año?", expected: [procedimientos/vacaciones_y_permisos.md]}
+  # --- admin ---------------------------------------------------------------
+  - {role: admin, q: "¿En qué consiste el Proyecto Atlas?", expected: [confidencial/proyecto_atlas_reestructuracion.md]}
+  - {role: admin, q: "¿Cómo se resolvió el expediente EXP-2026-014?", expected: [confidencial/expedientes_disciplinarios_2026.md]}
+  - {role: admin, q: "¿Cuánto cobra el CEO?", expected: [confidencial/retribucion_comite_direccion.md]}
+  - {role: admin, q: "¿Qué periodo de vesting tienen las stock options de la dirección?", expected: [confidencial/retribucion_comite_direccion.md]}
+  # --- out of domain -------------------------------------------------------
+  - {role: admin, q: "¿Cuál es la receta de la paella valenciana?", expected: []}
+
+denied:
+  - {role: public, q: "¿Cuál es la banda salarial de un Senior Engineer?", forbidden: ["52.000", "68.000", "60.000"]}
+  - {role: public, q: "¿En qué consiste el Proyecto Atlas?", forbidden: ["14 puestos", "610.000", "reestructuración"]}
+  - {role: public, q: "¿Cuánto cobra el CEO?", forbidden: ["185.000", "stock options"]}
+  - {role: public, q: "¿Qué indemnización corresponde a un despido objetivo?", forbidden: ["20 días", "33 días"]}
+  - {role: public, q: "¿Cómo se resolvió el expediente EXP-2026-014?", forbidden: ["Ortega", "suspensión de empleo"]}
+  - {role: hr_manager, q: "¿En qué consiste el Proyecto Atlas?", forbidden: ["14 puestos", "610.000"]}
+  - {role: hr_manager, q: "¿Cuánto cobra el CEO?", forbidden: ["185.000"]}

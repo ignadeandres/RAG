@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "roboost-rag"
+version = "0.1.0"
+description = "ROBOOST Corporate HR RAG System"
+requires-python = ">=3.12"
+dependencies = [
+    "openai>=1.50",
+    "cohere>=5.10",
+    "psycopg[binary,pool]>=3.2",
+    "pgvector>=0.3",
+    "ollama>=0.4",
+    "pydantic>=2.8",
+    "pydantic-settings>=2.4",
+    "python-frontmatter>=1.1",
+    "pyyaml>=6.0",
+    "bcrypt>=4.2",
+    "streamlit>=1.40",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3"]
+
+[tool.setuptools.packages.find]
+include = ["roboost_rag*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["integration: requires a dedicated ParadeDB test database (set TEST_DATABASE_URL)"]
+addopts = "-m 'not integration'"

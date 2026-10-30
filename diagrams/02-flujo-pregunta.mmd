@@ -1,0 +1,33 @@
+sequenceDiagram
+    actor U as Usuario
+    participant UI as app (Streamlit)
+    participant Q as QueryService
+    participant R as RetrievalService
+    participant O as Ollama
+    participant DB as ParadeDB
+    participant C as Cohere
+
+    U->>UI: usuario y contraseña
+    UI->>UI: bcrypt → rol (public / hr_manager / admin)
+    U->>UI: pregunta
+    UI->>Q: ask(pregunta, rol)
+    Q->>R: retrieve(pregunta, rol)
+    par búsqueda por similitud
+        R->>O: bge-m3: vector de la pregunta
+        R->>DB: top-20 más cercanos WHERE access_level <= rol
+    and búsqueda por palabras clave
+        R->>DB: top-20 BM25 (|||) WHERE access_level <= rol
+    end
+    R->>R: fusión RRF → top-10
+    R->>C: rerank(pregunta, 10 fragmentos)
+    C-->>R: puntuación de relevancia
+    Note over R,C: si Cohere falla o hay 429: orden RRF, sin umbral
+    R->>R: umbral 0,04 → top-4
+    alt ningún fragmento supera el filtro
+        R-->>Q: lista vacía
+        Q-->>UI: "No dispongo de información…" (sin llamar al LLM)
+    else hay fragmentos
+        Q->>O: qwen3.5:9b con fragmentos [1]…[4]
+        O-->>Q: respuesta con citas
+        Q-->>UI: respuesta + fuentes
+    end

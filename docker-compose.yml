@@ -1,0 +1,60 @@
+name: roboost-rag
+
+# Settings shared by the two Python services. Ollama is NOT containerised: it runs
+# natively on the host (macOS + GPU) and is reached through host.docker.internal.
+x-python-service: &python-service
+  build: .
+  image: roboost-rag:latest
+  env_file: .env
+  environment:
+    DATABASE_URL: postgresql://roboost:roboost@postgres:5432/roboost
+    OLLAMA_HOST: ${DOCKER_OLLAMA_HOST:-http://host.docker.internal:11434}
+    DOCS_DIR: /app/docs
+  extra_hosts:
+    - "host.docker.internal:host-gateway"  # needed on Linux; harmless on macOS
+  depends_on:
+    postgres:
+      condition: service_healthy
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: paradedb/paradedb:0.26.3-pg17
+    environment:
+      POSTGRES_USER: roboost
+      POSTGRES_PASSWORD: roboost
+      POSTGRES_DB: roboost
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/90-roboost.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U roboost -d roboost"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  indexer:
+    <<: *python-service
+    command: ["python", "-m", "roboost_rag", "sync", "--loop"]
+    volumes:
+      - ./docs:/app/docs:ro
+
+  app:
+    <<: *python-service
+    command:
+      ["streamlit", "run", "ui/app.py", "--server.address=0.0.0.0", "--server.port=8501"]
+    ports:
+      - "8501:8501"
+    healthcheck:
+      test:
+        ["CMD", "python", "-c",
+         "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+volumes:
+  pgdata:
